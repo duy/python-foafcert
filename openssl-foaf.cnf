@@ -1,0 +1,47 @@
+
+oid_section             = new_oids
+
+[ new_oids ]
+
+# id-on-xmppAddr = 1.3.6.1.5.5.7.8.5 # RFC 3920 section 5.1.1 defines this OID
+
+[ req ]
+
+#default_bits            = 1024
+#default_days            = 730            # how long to certify for
+default_keyfile         = ${name}_privatekey.pem
+distinguished_name      = req_distinguished_name
+#encrypt_key             = no
+#string_mask = nombstr
+req_extensions = v3_req
+x509_extensions         = v3_req
+# #prompt = no # don't ask about the DN
+
+[ req_distinguished_name ]
+
+commonName              = Common Name (eg, YOUR name)
+#commonName_default      = rhizomatik.net
+#commonName_default     = Henry Story
+commonName_default      = ${webid}
+#commonName_max          = 64
+#countryName                     = CR
+#stateOrProvinceName             = Croatan
+#localityName                    = Ciberespacio
+#organizationName                = Rhizomatik Labs
+
+[ v3_req ]
+
+#subjectAltName=DNS:taac.rhizomatik.net,DNS:git.rhizomatik.net
+basicConstraints                = CA:FALSE
+# not critical 
+extendedKeyUsage                = serverAuth,clientAuth
+subjectAltName                  = @subject_alternative_name
+#extendedKeyUsage                = Digital Signature, Non Repudiation, Key Encipherment, Key Agreement, Certificate Sign
+#Netscape Cert Type             = SSL Client, S/MIME
+# not critical, OpenSSL Generated Certificate
+#Subject Key Identifier         = 
+#Authority Key Identifier       =
+
+[ subject_alternative_name ]
+
+URI                             = ${webid}
