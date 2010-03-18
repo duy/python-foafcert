@@ -10,7 +10,9 @@ setup(
     author_email='duy@rhizomatik.net',
     url='http://git.rhizomatik.net/?p=python-foafcert',
 #      download_url="http://pypy.rhizomatik.net/sesamerestclient-0.0.tar.gz",
-      py_modules=['foafcert'],
+    py_modules=['foafcert'],
+#    package_data={'': ['data/openssl-foaf.cnf']},
+    data_files=[('conf', ['openssl-foaf.cnf',]),],
     keywords = 'python foaf ssl certificate X509 PKCS12',
     license = 'GPL',
     classifiers=[
