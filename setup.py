@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='python-foafcert',
-    version=_'0.1'
+    version='0.1',
     description='Python functions for generate a X509 certificate for FOAF+SSL authentication  (including WebId at SubjectAltName).',
     author='duy',
     author_email='duy@rhizomatik.net',
@@ -22,6 +22,6 @@ setup(
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ]
-    install_requires = ['httplib', 'urllib', 'urlib2'],
+#    install_requires = ['httplib', 'urllib', 'urlib2'],
 )
 
