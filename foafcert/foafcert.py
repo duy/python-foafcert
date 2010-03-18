@@ -74,25 +74,56 @@ import sys
 import os
 from string import Template
 
-def create_openssl(name, webid, openssl_file_name):
-    openssl_file = open(openssl_file_name, "r")
+
+def create_openssl(name, webid, openssl_custom_file_path=None, openssl_private_key_file_path=None, openssl_file_path="data/openssl-foaf.cnf"):
+    if openssl_file_path:
+        openssl_file_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), openssl_file_path)
+    if not  openssl_custom_file_path:
+        openssl_custom_file_path = "/tmp/%s_openssl-foaf.cnf" % name
+    if not openssl_private_key_file_path:
+        openssl_private_key_file_path = "/tmp/%s_privatekey.pem" % name
+    print openssl_file_path
+    openssl_file = open(openssl_file_path, "r")
     openssl_template_data = openssl_file.read()
     openssl_file.close()
     openssl_data = Template(openssl_template_data)
-    openssl_data = openssl_data.substitute(name = name, webid = webid)
-    openssl_custom_file = open(name+openssl_file_name, "w")
+    openssl_data = openssl_data.substitute(name = name, webid = webid, openssl_private_key_file_path = openssl_private_key_file_path)
+    openssl_custom_file = open(openssl_custom_file_path, "w")
     openssl_custom_file.write(openssl_data)
     openssl_custom_file.close()
+    print "Generated new openssl config file " + openssl_custom_file_path
+    return openssl_custom_file_path, openssl_private_key_file_path
 
-def generate_cert_x509(openssl_custom_file_name, name):
-    command = "openssl req -x509 -nodes -newkey rsa:1024 -config %s -out %s_cert.pem" % (openssl_custom_file_name, name)
-    output = os.system(command)
-    return output
+def generate_cert_x509(name, openssl_custom_file_path=None, openssl_cert_file_path=None):
+    if not  openssl_custom_file_path:
+        openssl_custom_file_path = "/tmp/%s_openssl-foaf.cnf" % name
+    if not openssl_cert_file_path:
+        openssl_cert_file_path = "/tmp/%s_cert.pem" % name
+    command = "openssl req -x509 -nodes -newkey rsa:1024 -config %s -out %s" % (openssl_custom_file_path, openssl_cert_file_path)
+    print "Generated new X509 cert wiht command: " + command
+    try:
+        output = os.system(command)
+    except Exception, details:
+        print "Something bad ocurred: " +  details
+#        print "Error % ocurred trying to execute command %s" % (sys.exc_info()[0],command)
+        sys.exit()
+    return openssl_cert_file_path
 
-def export_pkcs12(name):
-    command = "openssl pkcs12 -export -in %s_cert.pem -inkey %s_privatekey.pem -out %s_cert.p12" % (name, name, name)
-    output = os.system(command)
-    return output
+def export_pkcs12(name, openssl_cert_file_path=None, openssl_private_key_file_path=None, openssl_pkcs12_file_path=None):
+    if not  openssl_pkcs12_file_path:
+        openssl_pkcs12_file_path = "/tmp/%s_cert.p12" % name
+    if not openssl_cert_file_path:
+        openssl_cert_file_path = "/tmp/%s_cert.pem" % name
+    if not openssl_private_key_file_path:
+        openssl_private_key_file_path = "/tmp/%s_privatekey.pem" % name
+    command = "openssl pkcs12 -export -in %s -inkey %s -out %s" % (openssl_cert_file_path, openssl_private_key_file_path, openssl_pkcs12_file_path)
+    print "Generated PKCS#12 format wiht command: " + command
+    try:
+        output = os.system(command)
+    except Exception, details:
+        print "Something bad ocurred: " + details
+        sys.exit()
+    return openssl_pkcs12_file_path
 
 
 
@@ -102,12 +133,18 @@ def main(argv):
 #        commonName="Henry Story", pubkey="password")
     name = "henrystory"
     webid = "http://bblfish.net/people/henry/card#me"
-    openssl_file_name = "openssl-foaf.cnf"
-    create_openssl(name, webid, openssl_file_name)
-    generate_cert_x509(name+openssl_file_name, name)
-    export_pkcs12(name)
-
-
+#    openssl_file_path = "data/openssl-foaf.cnf"
+#    openssl_custom_file_path = "/tmp/%s_openssl-foaf.cnf" % (name)
+#    openssl_cert_file_path = "/tmp/%s_cert.pem" % name
+#    openssl_private_key_file_path = "/tmp/%s_privatekey.pem" % name
+#    openssl_pkcs12_file_path = "/tmp/%s_cert.p12" % name
+#    create_openssl(name, webid, openssl_file_path, openssl_custom_file_path)
+#    create_openssl(name, webid, openssl_custom_file_path)
+    create_openssl(name, webid)
+#    generate_cert_x509(openssl_custom_file_path, openssl_cert_file_path)
+    generate_cert_x509(name)
+#    export_pkcs12(openssl_cert_file_path, openssl_private_key_file_path, openssl_pkcs12_file_path)
+    openssl_pkcs12_file_path = export_pkcs12(name)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
