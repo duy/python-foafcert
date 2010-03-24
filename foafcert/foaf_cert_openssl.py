@@ -3,8 +3,9 @@
 # vim: set expandtab tabstop=4 shiftwidth=4:
 # -*- coding: utf-8 -*-
 
-# foafcert <http://rhizomatik.net/>
-# Python wrapper for Sesame's REST HTTP API
+# foaf_cert_openssl <http://rhizomatik.net/>
+# Python functions for generate a X509 client certificate (with OpenSSL) for 
+# FOAF+SSL authentication (including WebId at SubjectAltName).
 #
 # Copyright (C) 2009 duy at rhizomatik dot net
 #
@@ -18,12 +19,12 @@
 # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 # for more details.
 """
-foafcert
+foaf_cert_openssl
 
-Python functions for generate a X509 certificate for FOAF+SSL authentication
- (including WebId at SubjectAltName)
+Python functions for generate a X509 client certificate (with OpenSSL) for 
+ FOAF+SSL authentication (including WebId at SubjectAltName).
 
-Usage: execute ./foafcert -h
+Usage: execute ./foaf_cert_openssl -h
 
 @author:       duy
 @organization: rhizomatik labs
@@ -36,7 +37,7 @@ Usage: execute ./foafcert -h
 @TODO: implement with pyOpenSSL or M2Crypto
 """
 
-__app__ = "foafcert"
+__app__ = "foaf_cert_openssl"
 __author__ = "duy"
 __version__ = "0.1"
 __copyright__ = "Copyright (c) 2009 duy"

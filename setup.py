@@ -5,7 +5,7 @@ from distutils.core import setup
 setup(
     name='python-foafcert',
     version='0.1',
-    description='Python functions for generate a X509 certificate for FOAF+SSL authentication  (including WebId at SubjectAltName).',
+    description='Python functions for generate a X509 client certificate for XMPP or HTTP  FOAF+SSL authentication (including WebId and XMPP id at SubjectAltName).',
     author='duy',
     author_email='duy@rhizomatik.net',
     url='http://git.rhizomatik.net/?p=python-foafcert',
@@ -27,7 +27,7 @@ setup(
         'Programming Language :: Python'
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries :: Python Modules",
-    ]
-#    install_requires = ['httplib', 'urllib', 'urlib2'],
+    ],
+    requires = ['m2crypto'],
 )
 

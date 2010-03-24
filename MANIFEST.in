@@ -1,2 +1,2 @@
 include  README
-recursive-include foafcert/data *
+recursive-include foafcert/data *.cnf

@@ -381,7 +381,7 @@ def mkcert_casigned_from_file_save(id_xmpp, webid,
     req, pk = mkreq_client(id_xmpp, webid)
     cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk)
     cert.save_pem(cert_path)
-    pk.save_key(key_path)
+    pk.save_key(key_path, None)
     return cert, pk
 
 def pkcs12cert_from_file_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
@@ -405,7 +405,9 @@ def pkcs12cert(cert_path='/tmp/xmpp_foaf_cert.pem',
     p12.set_privatekey(pk)
     p12.set_certificate(cert)
     # @TODO: without key
-    open(p12cert_path,"w").write(p12.export())
+    p12cert = open(p12cert_path,"w")
+    p12cert.write(p12.export())
+    p12cert.close()
     return p12cert_path
 
 #def pkcs12cert(cert, capk, p12cert_path='/tmp/xmpp_foaf_cert.p12'):
@@ -417,6 +419,22 @@ def pkcs12cert(cert_path='/tmp/xmpp_foaf_cert.pem',
 #    p12.set_certificate(cert)
 #    open(p12cert_path,"w").write(p12.export()) 
 
+def pemcert(cert_path='/tmp/xmpp_foaf_cert.pem', 
+        key_path='/tmp/xmpp_foaf_key.key',
+        certkey_path='/tmp/xmpp_foaf_cert_key.pem'):
+    """
+    @TODO: check if possible to create with m2crypt
+    """
+    cert = open(cert_path)
+    cert_data = cert.read()
+    cert.close()
+    key = open(key_path)
+    cert_data += key.read()
+    key.close()
+    certkey = open(certkey_path, "w")
+    certkey.write(cert_data)
+    certkey.close()
+    return certkey_path
 
 def main(argv):
 #    name = "henrystory"
