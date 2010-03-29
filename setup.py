@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+#from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(
     name='python-foafcert',
@@ -9,13 +10,8 @@ setup(
     author='duy',
     author_email='duy@rhizomatik.net',
     url='http://git.rhizomatik.net/?p=python-foafcert',
-#      download_url="http://pypy.rhizomatik.net/sesamerestclient-0.0.tar.gz",
-#    py_modules=['foafcert'],
-#    data_files=[('conf', ['openssl-foaf.cnf',]),],
-#    package_data={'': ['data/openssl-foaf.cnf']},
-    packages=['foafcert'],
-    package_dir={'foafcert': 'foafcert'},
-    package_data={'foafcert': ['data/openssl-foaf.cnf']},
+    packages=find_packages(),
+    include_package_data=True,
 
     keywords = 'python foaf ssl certificate X509 PKCS12',
     license = 'GPL',
@@ -28,6 +24,5 @@ setup(
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    requires = ['m2crypto'],
 )
 

@@ -21,8 +21,10 @@
 """
 foaf_cert_openssl
 
-Python functions for generate a X509 client certificate (with OpenSSL) for 
- FOAF+SSL authentication (including WebId at SubjectAltName).
+Python functions for generate a X509 client certificate (with OpenSSL commands
+) for FOAF+SSL authentication (including WebId at SubjectAltName).
+This module is deprecated as xmpp_foaf_cert makes the same with m2crypto and 
+pyopenssl libraries and create de certificates valid for XMPP too.
 
 Usage: execute ./foaf_cert_openssl -h
 
@@ -126,6 +128,14 @@ def export_pkcs12(name, openssl_cert_file_path=None, openssl_private_key_file_pa
         sys.exit()
     return openssl_pkcs12_file_path
 
+
+def pkcs12cert_from_file_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
+        key_path='/tmp/xmpp_foaf_cakey.key', 
+        p12cert_path='/tmp/xmpp_foaf_cert.p12'):
+    # Instantiate an SMIME object; set it up; sign the buffer.
+    command = "openssl pkcs12 -export -in %s -inkey %s -out %s" % (cert_path, key_path, p12cert_path)
+    os.system(command)
+    return p12cert_path
 
 
 

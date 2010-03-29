@@ -33,7 +33,7 @@ Usage: execute ./xmpp_foaf_cert -h
 @contact:      duy at rhizomatik dot net
 @dependencies: python (>= version 2.4.5)
 @change log:
-@TODO: implement with pyOpenSSL or M2Crypto
+@TODO: 
 """
 
 __app__ = "xmpp_foaf_cert"
@@ -67,19 +67,22 @@ released %(__date__)s
 Thanks to:
 %(__credits__)s""" % globals()
 
-"""
-----> ca.key
-----> ca-cert.pem ---> copy to /etc/jabberd2/ca-chain.pem
-
-CA_CERT, CA_KEY ---> in settings.py 
-"""
 
 import os, time, base64, sys
 from M2Crypto import X509, EVP, RSA, Rand, ASN1, m2, util, BIO
+import OpenSSL
 
 ID_ON_XMPPADDR_OID = "1.3.6.1.5.5.7.8.5"
 
 def mkkeypair(bits):
+    """
+    Create RSA key pair
+    
+    @param bits: key bits length
+    @type bits: int
+    @return: private key 
+    @rtype: EVP.PKey
+    """
     pk = EVP.PKey()
     rsa = RSA.gen_key(bits, 65537)
     pk.assign_rsa(rsa)
@@ -90,11 +93,12 @@ def mkkeypair(bits):
 
 def mkreq_ca(bits=1024):
     """
-    Create an x509 request
-    @param bits: key bits lenght
+    Create an x509 CA request
+    
+    @param bits: (optional) key bits length
     @type bits: int
-    return x: x509 request
-    return pk: private key
+    @return:  x509 request, private key
+    @rtype: tuple (X509.Request, EVP.PKey)
     """
 
     # create key pair (private only?)
@@ -134,14 +138,15 @@ def mkreq_ca(bits=1024):
 def mkreq_client(id_xmpp, webid, bits=1024):
     """
     Create an x509 request
-    @param bits: key bits lenght
-    @param id_xmpp: (optional) xmpp id
-    @param webid: (optional) FOAF WebId
+    
+    @param bits: key bits length
+    @param id_xmpp: xmpp id
+    @param webid: FOAF WebId
     @type bits: int
     @type id_xmpp: string
     @type webid: string
-    return x: x509 request
-    return pk: private? key
+    @return:  x509 request, private key
+    @rtype: tuple (X509.Request, EVP.PKey)
     """
 
     # create key pair (private only?)
@@ -187,22 +192,75 @@ def mkreq_client(id_xmpp, webid, bits=1024):
     return x, pk
 
 def set_valtime(cert):
-    t = long(time.time()) + time.timezone
+    """
+    Set certificate valid time
+    
+    @param cert: certificate
+    @type cert: X509
+    """
+
+#    t = long(time.time()) + time.timezone
+    t = int(time.time())
     now = ASN1.ASN1_UTCTIME()
     now.set_time(t)
+    print now.get_datetime()
     nowPlusYear = ASN1.ASN1_UTCTIME()
     nowPlusYear.set_time(t + 60 * 60 * 24 * 365)
+    # later.set_time(int(time.time()+3600*24*7))
 #    return now, nowPlusYear
     cert.set_not_before(now)
+    print cert.get_not_before()
     cert.set_not_after(nowPlusYear)
+    print cert.get_not_after()
 
-def set_serial(cert):
+def get_serial_from_file(serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
+    """
+    Get serial number
+    
+    @param serial_path: serial file path
+    @type serial_path: string
+    @return: serial number
+    @rtype: int
+    """
+    try:
+        serial_file = open(serial_path, "r")
+        data = serial_file.read()
+        serial_file.close()
+        if data: number = int(data)
+        number += 1
+    except:
+        number = 1
+    serial_file = open(serial_path, "w")
+    serial_file.write(str(number))
+    serial_file.close()
+    return number
+
+def set_serial(cert, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
+    """
+    Set certificate serial number
+    
+    @param cert: certificate
+    @type cert: X509
+    @param serial_path: serial file path
+    @type serial_path: string
+    """
+    serial_number = get_serial_from_file(serial_path)
     serial=m2.asn1_integer_new()
-    m2.asn1_integer_set(serial,20)
+    m2.asn1_integer_set(serial,serial_number)
     m2.x509_set_serial_number(cert.x509,serial)
 #    return cert
 
-def mkcert_defaults(req):
+def mkcert_defaults(req, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
+    """
+    Create an x509 certificate from x509 certificate request with default values
+    
+    @param req: x509 certificate request 
+    @type cert: X509.Request
+    @param serial_path: serial file path
+    @type serial_path: string
+    @return: x509 certificate
+    @rtype: X509.X509
+    """
 
     # create x509 certificate
     cert = X509.X509()
@@ -236,7 +294,16 @@ def mkcert_defaults(req):
     return cert
 
 def mkcert_selfsigned(id_xmpp, webid):
-
+    """
+    Create an x509 self-signed certificate
+    
+    @param id_xmpp: xmpp id
+    @param webid: FOAF WebId
+    @type id_xmpp: string
+    @type webid: string
+    @return:  x509 self-signed certificate, private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     req, pk = mkreq_client(id_xmpp, webid)
     cert = mkcert_defaults(req)
 
@@ -254,18 +321,33 @@ def mkcert_selfsigned(id_xmpp, webid):
     cert.sign(pk, 'sha1')
 
     # Print the new certificate as a PEM-encoded string
-    print cert.as_pem()
-
     print "Generated new self-signed client certificate:"
     print cert.as_pem()
 
     return cert, pk
 
 
-def mkcert_casigned(id_xmpp, webid, req, cacert, capk):
+def mkcert_casigned(id_xmpp, webid, req, cacert, capk,
+        serial_path="/tmp/xmpp_foaf_cert_serial.txt"):
+    """
+    Create an x509 CA signed certificate
+    
+    @param id_xmpp: xmpp id
+    @param webid: FOAF WebId
+    @param cacert: CA certificate
+    @param capk: CA private key
+    @param seria_path: serial path
+    @type id_xmpp: string
+    @type webid: string
+    @type cacert: X509.X509
+    @type capk: EVP.PKey
+    @type serial_path: string
+    @return:  x509 CA signed certificate
+    @rtype: X509.X509
+    """
 
     # the cert public key is the req public key
-    cert = mkcert_defaults(req)
+    cert = mkcert_defaults(req, serial_path)
 
     # if certificate is going to be signed by a CA
 
@@ -299,6 +381,12 @@ def mkcert_casigned(id_xmpp, webid, req, cacert, capk):
     return cert
 
 def mkcacert():
+    """
+    Create an x509 CA certificate
+    
+    @return:  x509 CA certificate, CA private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     req, pk = mkreq_ca()
     cert = mkcert_defaults(req)
 
@@ -332,7 +420,16 @@ def mkcacert():
 
 def mkcacert_save(cacert_path='/tmp/xmpp_foaf_cacert.pem', 
         cakey_path='/tmp/xmpp_foaf_cakey.key'):
-# create ca signed certificate
+    """
+    Create an x509 CA certificate and save it as PEM file
+    
+    @param cacert_path: CA certificate path
+    @param cakey_path: CA private key path
+    @type cacert_path: string
+    @type cakey_path: string
+    @return:  x509 CA certificate, CA private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     # create ca cert
     cacert, capk = mkcacert()
     # save key without ask for password
@@ -342,6 +439,16 @@ def mkcacert_save(cacert_path='/tmp/xmpp_foaf_cacert.pem',
 
 def get_cacert_cakey_from_file(cacert_path='/tmp/xmpp_foaf_cacert.pem', 
         cakey_path='/tmp/xmpp_foaf_cakey.key'):
+    """
+    Get an x509 CA certificate and CA private key from a PEM CA certificate file
+    
+    @param cacert_path: CA certificate path
+    @param cakey_path: CA private key path
+    @type cacert_path: string
+    @type cakey_path: string
+    @return:  x509 CA certificate, CA private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     # with ca cert from file
     # Load the CA certificate and private key
     cacert=X509.load_cert(cacert_path)
@@ -352,11 +459,22 @@ def get_cacert_cakey_from_file(cacert_path='/tmp/xmpp_foaf_cacert.pem',
 
 def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
         key_path='/tmp/xmpp_foaf_key.key'):
+    """
+    Create an x509 self-signed certificate and save it as PEM file
+    
+    @param cert_path: certificate path
+    @param key_path: private key path
+    @type cert_path: string
+    @type key_path: string
+    @return:  x509 certificate, private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     # create self-signed certificate
     cert, pk = mkcert_selfsigned(id_xmpp, webid)
     # save key without ask for password
     pk.save_key(key_path, None)
     cert.save_pem(cert_path)
+    # to check
     #R  = req.as_der()
     #from pyasn1.codec.der import decoder as asn1
     # a = asn1.decode(R)
@@ -364,41 +482,85 @@ def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem',
 
 def mkcert_casigned_from_file(id_xmpp, webid, 
         cacert_path='/tmp/xmpp_foaf_cacert.pem', 
-        cakey_path='/tmp/xmpp_foaf_cakey.key'):
+        cakey_path='/tmp/xmpp_foaf_cakey.key'
+        serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
+    """
+    Create an x509 CA signed certificate from CA certificate and private key 
+    PEM files
+    
+    @param id_xmpp: xmpp id
+    @param webid: FOAF WebId
+    @type id_xmpp: string
+    @type webid: string
+    @param cacert_path: CA certificate path
+    @param cakey_path: CA private key path
+    @param serial_path: certificate serial path
+    @type cacert_path: string
+    @type cakey_path: string
+    @type serial_path: string
+    @return:  x509  certificate, private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     # with recently generated ca cert
     cacert, capk = get_cacert_cakey_from_file(cacert_path, cakey_path)
     req, pk = mkreq_client(id_xmpp, webid)
-    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk)
+    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk, serial_path)
     return cert, pk
 
 def mkcert_casigned_from_file_save(id_xmpp, webid, 
         cacert_path='/tmp/xmpp_foaf_cacert.pem', 
         cakey_path='/tmp/xmpp_foaf_cakey.key', 
         cert_path='/tmp/xmpp_foaf_cert.pem', 
-        key_path='/tmp/xmpp_foaf_key.key'):
+        key_path='/tmp/xmpp_foaf_key.key',
+        serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
+    """
+    Create an x509 CA signed certificate from CA certificate and private key 
+    files and save the CA signed certificate and private key in files as PEM
+    
+    @param id_xmpp: xmpp id
+    @param webid: FOAF WebId
+    @type id_xmpp: string
+    @type webid: string
+    @param cacert_path: CA certificate path
+    @param cakey_path: CA private key path
+    @type cacert_path: string
+    @type cakey_path: string
+    @param cert_path: certificate path
+    @param key_path: private key path
+    @param serial_path: certificate serial path
+    @type cert_path: string
+    @type key_path: string
+    @type serial_path: string
+    @return:  x509  certificate, private key
+    @rtype: tuple (X509.X509, EVP.PKey)
+    """
     # with recently generated ca cert
     cacert, capk = get_cacert_cakey_from_file(cacert_path, cakey_path)
     req, pk = mkreq_client(id_xmpp, webid)
-    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk)
+    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk, serial_path)
     cert.save_pem(cert_path)
     pk.save_key(key_path, None)
     return cert, pk
-
-def pkcs12cert_from_file_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
-        key_path='/tmp/xmpp_foaf_cakey.key', 
-        p12cert_path='/tmp/xmpp_foaf_cert.p12'):
-    # Instantiate an SMIME object; set it up; sign the buffer.
-    command = "openssl pkcs12 -export -in %s -inkey %s -out %s" % (cert_path, key_path, p12cert_path)
-    os.system(command)
-    return p12cert_path
 
 def pkcs12cert(cert_path='/tmp/xmpp_foaf_cert.pem', 
         key_path='/tmp/xmpp_foaf_key.key', 
         p12cert_path='/tmp/xmpp_foaf_cert.p12'):
     """
-    @TODO: create pkcs12 m2crypto function (http://osdir.com/ml/python.cryptography/2004-05/msg00001.html)
+    Create a PKCS12 certificate and save it from x509 certificate and private 
+    key files as PEM
+    
+    @param cert_path: certificate path
+    @param key_path: private key path
+    @param p12cert_path: private key path
+    @type cert_path: string
+    @type key_path: string
+    @type p12cert_path: string
+    @return: PKCS12 certificate path
+    @rtype: string
+    @TODO: create pkcs12 m2crypto function 
+            (http://osdir.com/ml/python.cryptography/2004-05/msg00001.html)
+    @TODO: create pkcs12 with password interactively
     """
-    import OpenSSL
     pk = OpenSSL.crypto.load_privatekey(OpenSSL.SSL.FILETYPE_PEM, open(key_path).read())
     cert = OpenSSL.crypto.load_certificate(OpenSSL.SSL.FILETYPE_PEM, open(cert_path).read())
     p12 = OpenSSL.crypto.PKCS12()
@@ -410,20 +572,49 @@ def pkcs12cert(cert_path='/tmp/xmpp_foaf_cert.pem',
     p12cert.close()
     return p12cert_path
 
-#def pkcs12cert(cert, capk, p12cert_path='/tmp/xmpp_foaf_cert.p12'):
-#    import OpenSSL
-#    pk = capk.as_pem()
-#    cert = cert.as_pem()
-#    p12 = OpenSSL.crypto.PKCS12()
-#    p12.set_privatekey(pk)
-#    p12.set_certificate(cert)
-#    open(p12cert_path,"w").write(p12.export()) 
+
+def cert_from_pkcs12(cert_path='/tmp/xmpp_foaf_cert.pem', 
+        key_path='/tmp/xmpp_foaf_key.key', 
+        p12cert_path='/tmp/xmpp_foaf_cert.p12'):
+    """
+    Get X509 certificate and private key from PKCS12 file and save them as PEM
+    key files as PEM
+    
+    @param cert_path: certificate path
+    @param key_path: private key path
+    @param p12cert_path: private key path
+    @type cert_path: string
+    @type key_path: string
+    @type p12cert_path: string
+    @TODO: get pkcs12 with password interactively
+    """
+    p12 = OpenSSL.crypto.load_pkcs12(open(p12cert_path).read())
+    cert = p12.get_certificate()
+    pk = p12.get_privatekey()
+    certdump = OpenSSL.crypto.dump_certificate(OpenSSL.SSL.FILETYPE_PEM, cert)
+    cert_file = open(cert_path, "w")
+    cert_file.write(certdump)
+    cert_file.close()
+    pkeydump = OpenSSL.crypto.dump_privatekey(OpenSSL.SSL.FILETYPE_PEM, pk)
+    pkey_file = open(key_path, "w")
+    pkey_file.write(pkeydump)
+    pkey.close()
+    pkey_file.close()
 
 def pemcert(cert_path='/tmp/xmpp_foaf_cert.pem', 
         key_path='/tmp/xmpp_foaf_key.key',
         certkey_path='/tmp/xmpp_foaf_cert_key.pem'):
     """
-    @TODO: check if possible to create with m2crypt
+    Create a PEM file with X509 certificate and private key from PEM files
+    
+    @param cert_path: certificate path
+    @param key_path: private key path
+    @param certkey_path: private key path
+    @type cert_path: string
+    @type key_path: string
+    @type certkey_path: string
+    @return: PEM file with X509 certificate and private key path
+    @rtype: string
     """
     cert = open(cert_path)
     cert_data = cert.read()
@@ -437,8 +628,6 @@ def pemcert(cert_path='/tmp/xmpp_foaf_cert.pem',
     return certkey_path
 
 def main(argv):
-#    name = "henrystory"
-#    webid = "http://bblfish.net/people/henry/card#me"
     id_xmpp = "duy@xmpp.rhizomatik.net"
     webid = "http://foafssl.rhizomatik.net/duy#me"
     
