@@ -6,7 +6,7 @@
 # Python functions for generate a X509 client certificate for XMPP or HTTP
 # FOAF+SSL authentication (including WebId and XMPP id at SubjectAltName).
 #
-# Copyright (C) 2009 duy at rhizomatik dot net
+# Copyright (C) 2010 duy at rhizomatik dot net
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the
@@ -39,8 +39,8 @@ Usage: execute ./xmpp_foaf_cert -h
 __app__ = "xmpp_foaf_cert"
 __author__ = "duy"
 __version__ = "0.1"
-__copyright__ = "Copyright (c) 2009 duy"
-__date__ = "2009/10/23"
+__copyright__ = "Copyright (c) 2010 duy"
+__date__ = "2010/03/01"
 __license__ = " GNU GPL version 3 or any later version (details at http://www.gnu.org)"
 __credits__ = ""
 
@@ -74,6 +74,39 @@ import OpenSSL
 
 ID_ON_XMPPADDR_OID = "1.3.6.1.5.5.7.8.5"
 
+DEBUG = False
+
+# Example default values
+CA_CN = "CA Certificate"
+CA_C = "CR"
+CA_O="Rhizomatik Labs"
+CA_OU="Mycelia project"
+CA_Email="ca@rhizomatik.net"
+#ST LONDON
+#L Wimbledom
+# other extensions for cert
+"""
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Comment: 
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier: 
+                2A:69:21:5C:D6:19:05:D6:AC:33:89:79:89:5E:07:24:9E:9C:C4:13
+            X509v3 Authority Key Identifier: 
+                keyid:42:D9:0E:FB:7A:B4:D4:EF:BE:5F:4B:87:7E:BE:D3:AD:4C:64:C3:33
+                DirName:/C=GB/ST=LONDON/L=Wimbledon/O=FOAF.ME/CN=FOAF.ME/emailAddress=ca@foaf.me
+                serial:B8:8B:38:D3:8A:D1:75:E2
+"""
+# other extensions for ca
+"""
+            X509v3 Subject Key Identifier: 
+                A4:B4:A9:B8:82:BC:FB:58:76:CA:1D:9E:F1:9E:1B:C3:F7:D4:F0:D5
+            X509v3 Authority Key Identifier: 
+                keyid:A4:B4:A9:B8:82:BC:FB:58:76:CA:1D:9E:F1:9E:1B:C3:F7:D4:F0:D5
+                DirName:/CN=Rhizomatik labs TestCA/C=CR/ST=Croatan/L=Here/O=rhizomatik.net/emailAddress=info@rhizomatik.net
+                serial:83:A5:0B:01:E9:2C:37:9B
+"""
+
 def mkkeypair(bits):
     """
     Create RSA key pair
@@ -86,17 +119,27 @@ def mkkeypair(bits):
     pk = EVP.PKey()
     rsa = RSA.gen_key(bits, 65537)
     pk.assign_rsa(rsa)
-    print "Generated private RSA key:"
+    print "Generated private RSA key"
     # Print the new private key as a PEM-encoded (but unencrypted) string
-    print rsa.as_pem(cipher=None)
+    if DEBUG: print rsa.as_pem(cipher=None)
     return pk
 
-def mkreq_ca(bits=1024):
+def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
     """
     Create an x509 CA request
     
     @param bits: (optional) key bits length
     @type bits: int
+    @param CN: certificate commonName
+    @param C: certificate countryName
+    @param O: certificate organizationName
+    @param OU: certificate organizationalUnitName
+    @param Email: certificate emailAddress
+    @type CN: string
+    @type C: string
+    @type O: string
+    @type OU: string
+    @type Email: string
     @return:  x509 request, private key
     @rtype: tuple (X509.Request, EVP.PKey)
     """
@@ -112,31 +155,37 @@ def mkreq_ca(bits=1024):
 
     x509_name = x.get_subject()
     # optional
-    # set Subject commonName
-    x509_name.CN = "CA Certificate Request"
-
 #    # Create a new X509_Name object for our new certificate
 #    x509_name=X509.X509_Name()
-    x509_name.C = "CR"
-    x509_name.O="Rhizomatik Labs"
-    x509_name.OU="Mycelia project"
-    x509_name.Email="ca@rhizomatik.net"
-
 #    # Set the new cert subject
+
 #    x.set_subject_name(x509_name.x509_name)
+    # set Subject commonName
 
+#    x509_name.CN = "CA Certificate Request"
+#    x509_name.C = "CR"
+#    x509_name.O="Rhizomatik Labs"
+#    x509_name.OU="Mycelia project"
+#    x509_name.Email="ca@rhizomatik.net"
 
-    # sign the x509 certificate request with private? key
+    if not CN: x509_name.CN = CA_CN
+    if not C: x509_name.C = CA_C
+    if not O: x509_name.O = CA_O
+    if not OU: x509_name.OU = CA_OU
+    if not Email:x509_name. Email = CA_Email
+
+    # sign the x509 certificate request with private key
     x.sign(pk,'sha1')
     
-    print "Generated new CA req:"
-    print x.as_pem()
+    print "Generated new CA req"
+    if DEBUG: print  x.as_pem()
 
     return x, pk
 
 
 def mkreq_client(id_xmpp, webid, bits=1024):
-    """
+#        ,C=None, O=None, OU=None, Email=None):
+    """mkkeypair(bits)
     Create an x509 request
     
     @param bits: key bits length
@@ -145,6 +194,14 @@ def mkreq_client(id_xmpp, webid, bits=1024):
     @type bits: int
     @type id_xmpp: string
     @type webid: string
+    @param C: certificate countryName
+    @param O: certificate organizationName
+    @param OU: certificate organizationalUnitName
+    @param Email: certificate emailAddress
+    @type C: string
+    @type O: string
+    @type OU: string
+    @type Email: string
     @return:  x509 request, private key
     @rtype: tuple (X509.Request, EVP.PKey)
     """
@@ -169,10 +226,16 @@ def mkreq_client(id_xmpp, webid, bits=1024):
     # optional
 #    # Create a new X509_Name object for our new certificate
 #    x509_name=X509.X509_Name()
-    x509_name.C = "CR"
-    x509_name.O="Rhizomatik Labs"
-    x509_name.OU="Mycelia project"
-    x509_name.Email="ca@rhizomatik.net"
+
+#    x509_name.C = "CR"
+#    x509_name.O="Rhizomatik Labs"
+#    x509_name.OU="Mycelia project"
+#    x509_name.Email="ca@rhizomatik.net"
+
+#    if not C: x509_name.C = CA_C
+#    if not O: x509_name.O = CA_O
+#    if not OU: x509_name.OU = CA_OU
+#    if not Email:x509_name. Email = CA_Email
 
 #    # Set the new cert subject
 #    x.set_subject_name(x509_name.x509_name)
@@ -186,8 +249,8 @@ def mkreq_client(id_xmpp, webid, bits=1024):
 
     # sign the x509 certificate request with private? key
     x.sign(pk,'sha1')
-    print "Generated new client req:"
-    print x.as_pem()
+    print "Generated new client req"
+    if DEBUG: print x.as_pem()
 
     return x, pk
 
@@ -209,9 +272,9 @@ def set_valtime(cert):
     # later.set_time(int(time.time()+3600*24*7))
 #    return now, nowPlusYear
     cert.set_not_before(now)
-    print cert.get_not_before()
+    if DEBUG: print cert.get_not_before()
     cert.set_not_after(nowPlusYear)
-    print cert.get_not_after()
+    if DEBUG: print cert.get_not_after()
 
 def get_serial_from_file(serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
     """
@@ -279,7 +342,9 @@ def mkcert_defaults(req, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
     cert.set_issuer(x509_name)
 
     # set version
-    cert.set_version(3)
+#    cert.set_version(3)
+    #@TODO: check that changing jabberd version here can remain 3
+    cert.set_version(2)
 
     #@TODO: set a real serial number
 #    cert.set_serial_number(1)
@@ -287,7 +352,7 @@ def mkcert_defaults(req, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
 
     # Set Cert validity time
 #    now, nowPlusYear = mktime()
-#    cert.set_not_before(now)
+#    cert.set_not_before(now)pkcs
 #    cert.set_not_after(nowPlusYear)
     set_valtime(cert)
 
@@ -321,8 +386,8 @@ def mkcert_selfsigned(id_xmpp, webid):
     cert.sign(pk, 'sha1')
 
     # Print the new certificate as a PEM-encoded string
-    print "Generated new self-signed client certificate:"
-    print cert.as_pem()
+    print "Generated new self-signed client certificate"
+    if DEBUG: print cert.as_pem()
 
     return cert, pk
 
@@ -376,18 +441,28 @@ def mkcert_casigned(id_xmpp, webid, req, cacert, capk,
     print m2.x509_verify(cert.x509, m2.x509_get_pubkey(cacert.x509))
 
     # Print the new certificate as a PEM-encoded string
-    print "Generated new client certificate signed with CA: "
-    print cert.as_pem()
+    print "Generated new client certificate signed with CA"
+    if DEBUG: print cert.as_pem()
     return cert
 
-def mkcacert():
+def mkcacert(CN=None, C=None, O=None, OU=None, Email=None):
     """
     Create an x509 CA certificate
     
+    @param CN: certificate commonName
+    @param C: certificate countryName
+    @param O: certificate organizationName
+    @param OU: certificate organizationalUnitName
+    @param Email: certificate emailAddress
+    @type CN: string
+    @type C: string
+    @type O: string
+    @type OU: string
+    @type Email: string
     @return:  x509 CA certificate, CA private key
     @rtype: tuple (X509.X509, EVP.PKey)
     """
-    req, pk = mkreq_ca()
+    req, pk = mkreq_ca(CN=CN, C=C, O=O, OU=OU, Email=Email)
     cert = mkcert_defaults(req)
 
     # this is not optional
@@ -412,17 +487,28 @@ def mkcacert():
     # sign the x509 CA certificate with private? key generated in the request
     cert.sign(pk, 'sha1')
 
-    print "Generated new CA certificate:"
+    print "Generated new CA certificate"
     # Print the new certificate as a PEM-encoded string
-    print cert.as_pem()
+    if DEBUG: print cert.as_pem()
 
     return cert, pk
 
 def mkcacert_save(cacert_path='/tmp/xmpp_foaf_cacert.pem', 
-        cakey_path='/tmp/xmpp_foaf_cakey.key'):
+        cakey_path='/tmp/xmpp_foaf_cakey.key', 
+        CN=None, C=None, O=None, OU=None, Email=None):
     """
     Create an x509 CA certificate and save it as PEM file
     
+    @param CN: certificate commonName
+    @param C: certificate countryName
+    @param O: certificate organizationName
+    @param OU: certificate organizationalUnitName
+    @param Email: certificate emailAddress
+    @type CN: string
+    @type C: string
+    @type O: string
+    @type OU: string
+    @type Email: string
     @param cacert_path: CA certificate path
     @param cakey_path: CA private key path
     @type cacert_path: string
@@ -431,7 +517,7 @@ def mkcacert_save(cacert_path='/tmp/xmpp_foaf_cacert.pem',
     @rtype: tuple (X509.X509, EVP.PKey)
     """
     # create ca cert
-    cacert, capk = mkcacert()
+    cacert, capk = mkcacert(CN, C, O, OU, Email)
     # save key without ask for password
     capk.save_key(cakey_path, None)
     cacert.save_pem(cacert_path)
@@ -456,6 +542,56 @@ def get_cacert_cakey_from_file(cacert_path='/tmp/xmpp_foaf_cacert.pem',
     capk=EVP.PKey()
     capk.assign_rsa(ca_priv_rsa)
     return cacert, capk
+
+def get_modulus_exponent_from_cert_file(cert_path='/tmp/xmpp_foaf_cert.pem'):
+    """
+    Get the modulus and exponent of RSA Public Key from a PEM Certificate file
+    m2.rsa_get_e(rsa.rsa) return something like '\x00\x00\x00\x03\x01\x00\x01'
+    so to get the decimal value (65537), two crufty methods
+    
+    @param cert_path: certificate path
+    @type cert_path: string
+    @return: tuple(modulus, exponent)
+    @rtype: tuple (hex, int)
+    @TODO: replace the exponent method with something cleaner
+    """
+    cert=X509.load_cert(cert_path)
+    pubkey = cert.get_pubkey()
+    modulus = pubkey.get_modulus()
+    
+    pk_rsa = pubkey.get_rsa()
+    e  = m2.rsa_get_e(rsa.rsa)
+#    exponent = int(eval(repr(e[-3:]).replace('\\x', '')),16)
+    exponent = int(''.join(["%2.2d" % ord(x) for x in e[-3:]]),16)
+    
+    return modulus, exponent
+
+def get_modulus_exponent_from_cert_pk_file(cert_path='/tmp/xmpp_foaf_cert.pem', 
+        key_path='/tmp/xmpp_foaf_key.key'):
+    """
+    Get the modulus and exponent of RSA Public Key from a PEM Certificate and
+    private key files
+    m2.rsa_get_e(rsa.rsa) return something like '\x00\x00\x00\x03\x01\x00\x01'
+    so to get the decimal value (65537), two crufty methods
+    
+    @param cert_path: certificate path
+    @type cert_path: string
+    @param key_path: private key path
+    @type key_path: string
+    @return: tuple(modulus, exponent)
+    @rtype: tuple (hex, int)
+    @TODO: replace the exponent method with something cleaner
+    """
+    cert=X509.load_cert(cert_path)
+    pubkey = cert.get_pubkey()
+    modulus = pubkey.get_modulus()
+    
+    pk_rsa = RSA.load_key(key_path)
+    e  = m2.rsa_get_e(pk_rsa.rsa)
+#    exponent = int(eval(repr(e[-3:]).replace('\\x', '')),16)
+    exponent = int(''.join(["%2.2d" % ord(x) for x in e[-3:]]),16)
+    
+    return modulus, exponent
 
 def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
         key_path='/tmp/xmpp_foaf_key.key'):
@@ -482,7 +618,7 @@ def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem',
 
 def mkcert_casigned_from_file(id_xmpp, webid, 
         cacert_path='/tmp/xmpp_foaf_cacert.pem', 
-        cakey_path='/tmp/xmpp_foaf_cakey.key'
+        cakey_path='/tmp/xmpp_foaf_cakey.key',
         serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
     """
     Create an x509 CA signed certificate from CA certificate and private key 
@@ -534,11 +670,11 @@ def mkcert_casigned_from_file_save(id_xmpp, webid,
     @return:  x509  certificate, private key
     @rtype: tuple (X509.X509, EVP.PKey)
     """
-    # with recently generated ca cert
     cacert, capk = get_cacert_cakey_from_file(cacert_path, cakey_path)
     req, pk = mkreq_client(id_xmpp, webid)
     cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk, serial_path)
     cert.save_pem(cert_path)
+    print "saved cert: %s" % cert_path
     pk.save_key(key_path, None)
     return cert, pk
 
@@ -632,7 +768,6 @@ def main(argv):
     webid = "http://foafssl.rhizomatik.net/duy#me"
     
     mkcacert_save()
-    get_cacert_cakey_from_file()
     mkcert_casigned_from_file_save(id_xmpp, webid)
     p12cert_path = pkcs12cert()
 #    p12cert_path = pkcs12cert_from_file_save()
