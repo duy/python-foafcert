@@ -74,7 +74,7 @@ import OpenSSL
 
 ID_ON_XMPPADDR_OID = "1.3.6.1.5.5.7.8.5"
 
-DEBUG = False
+DEBUG = True
 
 # Example default values
 CA_CN = "CA Certificate"
@@ -143,6 +143,12 @@ def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
     @return:  x509 request, private key
     @rtype: tuple (X509.Request, EVP.PKey)
     """
+    if DEBUG:
+        print "CN: "+CN
+        print "C: "+C
+        print "O: "+O
+        print "OU: "+OU
+        print "Email: "+Email
 
     # create key pair (private only?)
     pk = mkkeypair(bits)
@@ -168,11 +174,17 @@ def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
 #    x509_name.OU="Mycelia project"
 #    x509_name.Email="ca@rhizomatik.net"
 
-    if not CN: x509_name.CN = CA_CN
-    if not C: x509_name.C = CA_C
-    if not O: x509_name.O = CA_O
-    if not OU: x509_name.OU = CA_OU
-    if not Email:x509_name. Email = CA_Email
+    if not CN: CN = CA_CN
+    if not C: C = CA_C
+    if not O: O = CA_O
+    if not OU: OU = CA_OU
+    if not Email: Email = CA_Email
+
+    x509_name.CN = CN
+    x509_name.C = C
+    x509_name.O = O
+    x509_name.OU = OU
+    x509_name.Email = Email
 
     # sign the x509 certificate request with private key
     x.sign(pk,'sha1')

@@ -29,9 +29,12 @@ Usage: execute ./gen_cacert -h
 @license:      GNU GPL version 3 or any later version 
                 (details at http://www.gnu.org)
 @contact:      duy at rhizomatik dot net
-@dependencies: python (>= version 2.4.5)
+@dependencies: python (>= version 2.5)
 @change log:
 @TODO: 
+ * Get error/warning when some of the main parameters have space and th
+at and the nexts get ignored
+ * Add paramter for certificate serial path
 """
 
 __app__ = "gen_cacert"
@@ -42,9 +45,11 @@ __date__ = "2010/03/01"
 __license__ = " GNU GPL version 3 or any later version (details at http://www.gnu.org)"
 __credits__ = ""
 
-from gen_cacert import *
+from xmpp_foaf_cert import *
 import sys
 import getopt
+
+DEBUG = True
 
 ## ----------------------------------------------------------------------
 ## administrative functions
@@ -76,15 +81,6 @@ released %(__date__)s
 Thanks to:
 %(__credits__)s""" % globals()
 
-
-# Example default values
-CN = "CA Certificate"
-C = "CR"
-O="Rhizomatik Labs"
-OU="Mycelia project"
-Email="ca@rhizomatik.net"
-cacert_path='/tmp/xmpp_foaf_cacert.pem'
-cakey_path='/tmp/xmpp_foaf_cakey.key'
 
 def main(argv):
     """
@@ -141,6 +137,13 @@ def main(argv):
             OU = arg
         elif opt in ("-e","--email"):
             Email = arg
+    if DEBUG:
+        print "CN: "+CN
+        print "C: "+C
+        print "O: "+O
+        print "OU: "+OU
+        print "Email: "+Email
+
     mkcacert_save(cacert_path, cakey_path, CN, C, O, OU, Email)
     
 if __name__ == "__main__":
