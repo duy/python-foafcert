@@ -31,7 +31,7 @@ Usage: execute ./xmpp_foaf_cert -h
 @license:      GNU GPL version 3 or any later version 
                 (details at http://www.gnu.org)
 @contact:      duy at rhizomatik dot net
-@dependencies: python (>= version 2.4.5)
+@dependencies: python (>= version 2.5)
 @change log:
 @TODO: 
 """
@@ -143,12 +143,6 @@ def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
     @return:  x509 request, private key
     @rtype: tuple (X509.Request, EVP.PKey)
     """
-    if DEBUG:
-        print "CN: "+CN
-        print "C: "+C
-        print "O: "+O
-        print "OU: "+OU
-        print "Email: "+Email
 
     # create key pair (private only?)
     pk = mkkeypair(bits)
@@ -195,17 +189,20 @@ def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
     return x, pk
 
 
-def mkreq_client(id_xmpp, webid, bits=1024):
-#        ,C=None, O=None, OU=None, Email=None):
-    """mkkeypair(bits)
+#def mkreq_client(id_xmpp, webid, bits=1024):
+def mkreq_client(webid, id_xmpp=None, bits=1024, pubkey = None,
+        C=None, O=None, OU=None, Email=None):
+    """
     Create an x509 request
     
     @param bits: key bits length
     @param id_xmpp: xmpp id
     @param webid: FOAF WebId
+    @param pubkey: client generated public key
     @type bits: int
     @type id_xmpp: string
     @type webid: string
+    @type pubkey: string
     @param C: certificate countryName
     @param O: certificate organizationName
     @param OU: certificate organizationalUnitName
@@ -218,19 +215,33 @@ def mkreq_client(id_xmpp, webid, bits=1024):
     @rtype: tuple (X509.Request, EVP.PKey)
     """
 
-    # create key pair (private only?)
-    pk = mkkeypair(bits)
-
     # create x509 request
     x = X509.Request()
+    
+    if pubkey:
+        #We got a SPKAC, from where we extracted the pubkey
+        if DEBUG: print 'setting pubkey'
+        pk = EVP.PKey()
+        b = BIO.MemoryBuffer(pubkey)
+        if DEBUG: print 'writing pubkey pem'
+        _pubkey = RSA.load_pub_key_bio(b)
+        if DEBUG: print 'loading pubkey into RSA'
+        if DEBUG: print 'assigning rsa pubkey'
+        pk.assign_rsa(_pubkey)
+    else:
+        # create key pair and gets the public key
+        pk = mkkeypair(bits)
 
     # set public key
     x.set_pubkey(pk)
+    if DEBUG: print 'pubkey setted'
 
     x509_name = x.get_subject()
 
     # set Subject commonName
-    x509_name.CN = webid + "/"+ ID_ON_XMPPADDR_OID + "=" + id_xmpp
+#    x509_name.CN = webid + "/"+ ID_ON_XMPPADDR_OID + "=" + id_xmpp
+    #FIXME think that FF does not display this CN properly
+    x509_name.CN = 'RHIZOMATIC FOAF'
 #    name.CN = webid
 
     # if the req is going to be signed by a ca
@@ -244,23 +255,28 @@ def mkreq_client(id_xmpp, webid, bits=1024):
 #    x509_name.OU="Mycelia project"
 #    x509_name.Email="ca@rhizomatik.net"
 
-#    if not C: x509_name.C = CA_C
-#    if not O: x509_name.O = CA_O
-#    if not OU: x509_name.OU = CA_OU
-#    if not Email:x509_name. Email = CA_Email
+    if not C: x509_name.C = CA_C
+    if not O: x509_name.O = CA_O
+    if not OU: x509_name.OU = CA_OU
+    if not Email:x509_name.Email = CA_Email
 
 #    # Set the new cert subject
 #    x.set_subject_name(x509_name.x509_name)
 
     # set subjectAltName extension
-    ext1 = X509.new_extension('subjectAltName', 'URI:%s, otherName:%s;UTF8:%s' %(webid, ID_ON_XMPPADDR_OID, id_xmpp))
-#    ext1 = X509.new_extension('subjectAltName', 'URI:%s' %webid)
+    if id_xmpp:
+        ext1 = X509.new_extension('subjectAltName', 'URI:%s, otherName:%s;UTF8:%s' %(webid, ID_ON_XMPPADDR_OID, id_xmpp))
+    else:
+        ext1 = X509.new_extension('subjectAltName', 'URI:%s' %webid)
     extstack = X509.X509_Extension_Stack()
     extstack.push(ext1)
     x.add_extensions(extstack)
 
-    # sign the x509 certificate request with private? key
-    x.sign(pk,'sha1')
+    # sign the x509 certificate request with private key
+    # only if we are generating the key pair
+    if not pubkey:
+        x.sign(pk,'sha1')
+
     print "Generated new client req"
     if DEBUG: print x.as_pem()
 
@@ -323,6 +339,8 @@ def set_serial(cert, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
     serial=m2.asn1_integer_new()
     m2.asn1_integer_set(serial,serial_number)
     m2.x509_set_serial_number(cert.x509,serial)
+#FIXME this should return the modified serial cert, or not?
+#is it passing a ptr?
 #    return cert
 
 def mkcert_defaults(req, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
@@ -370,7 +388,7 @@ def mkcert_defaults(req, serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
 
     return cert
 
-def mkcert_selfsigned(id_xmpp, webid):
+def mkcert_selfsigned(webid, id_xmpp=None):
     """
     Create an x509 self-signed certificate
     
@@ -381,7 +399,7 @@ def mkcert_selfsigned(id_xmpp, webid):
     @return:  x509 self-signed certificate, private key
     @rtype: tuple (X509.X509, EVP.PKey)
     """
-    req, pk = mkreq_client(id_xmpp, webid)
+    req, pk = mkreq_client(webid, id_xmpp)
     cert = mkcert_defaults(req)
 
     # the cert subject is the same as req subject
@@ -404,7 +422,7 @@ def mkcert_selfsigned(id_xmpp, webid):
     return cert, pk
 
 
-def mkcert_casigned(id_xmpp, webid, req, cacert, capk,
+def mkcert_casigned(webid, req, cacert, capk, id_xmpp=None,
         serial_path="/tmp/xmpp_foaf_cert_serial.txt"):
     """
     Create an x509 CA signed certificate
@@ -440,8 +458,10 @@ def mkcert_casigned(id_xmpp, webid, req, cacert, capk,
 
     # set subjectAltName extension
 #    ext = X509.new_extension('subjectAltName', 'DNS:foobar.example.com')
-    ext = X509.new_extension('subjectAltName', 'URI:%s, otherName:%s;UTF8:%s' %(webid, ID_ON_XMPPADDR_OID, id_xmpp))
-#    ext = X509.new_extension('subjectAltName', 'URI:%s' %webid)
+    if id_xmpp:
+        ext = X509.new_extension('subjectAltName', 'URI:%s, otherName:%s;UTF8:%s' %(webid, ID_ON_XMPPADDR_OID, id_xmpp))
+    else:
+        ext = X509.new_extension('subjectAltName', 'URI:%s' %webid)
     ext.set_critical(0)
     cert.add_ext(ext)
 
@@ -555,6 +575,28 @@ def get_cacert_cakey_from_file(cacert_path='/tmp/xmpp_foaf_cacert.pem',
     capk.assign_rsa(ca_priv_rsa)
     return cacert, capk
 
+def get_modulus_exponent_from_cert(cert):
+    """
+    Get the modulus and exponent of RSA Public Key from a PEM Certificate file
+    m2.rsa_get_e(rsa.rsa) return something like '\x00\x00\x00\x03\x01\x00\x01'
+    so to get the decimal value (65537), two crufty methods
+    
+    @param cert_path: certificate path
+    @type cert_path: string
+    @return: tuple(modulus, exponent)
+    @rtype: tuple (hex, int)
+    @TODO: replace the exponent method with something cleaner
+    """
+    pubkey = cert.get_pubkey()
+    modulus = pubkey.get_modulus()
+    
+    pk_rsa = pubkey.get_rsa()
+    e  = m2.rsa_get_e(pk_rsa.rsa)
+#    exponent = int(eval(repr(e[-3:]).replace('\\x', '')),16)
+    exponent = int(''.join(["%2.2d" % ord(x) for x in e[-3:]]),16)
+    
+    return modulus, exponent
+
 def get_modulus_exponent_from_cert_file(cert_path='/tmp/xmpp_foaf_cert.pem'):
     """
     Get the modulus and exponent of RSA Public Key from a PEM Certificate file
@@ -572,7 +614,7 @@ def get_modulus_exponent_from_cert_file(cert_path='/tmp/xmpp_foaf_cert.pem'):
     modulus = pubkey.get_modulus()
     
     pk_rsa = pubkey.get_rsa()
-    e  = m2.rsa_get_e(rsa.rsa)
+    e  = m2.rsa_get_e(pk_rsa.rsa)
 #    exponent = int(eval(repr(e[-3:]).replace('\\x', '')),16)
     exponent = int(''.join(["%2.2d" % ord(x) for x in e[-3:]]),16)
     
@@ -605,7 +647,8 @@ def get_modulus_exponent_from_cert_pk_file(cert_path='/tmp/xmpp_foaf_cert.pem',
     
     return modulus, exponent
 
-def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem', 
+def mkcert_selfsigned_save(webid, id_xmpp=None,
+        cert_path='/tmp/xmpp_foaf_cert.pem', 
         key_path='/tmp/xmpp_foaf_key.key'):
     """
     Create an x509 self-signed certificate and save it as PEM file
@@ -618,7 +661,7 @@ def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem',
     @rtype: tuple (X509.X509, EVP.PKey)
     """
     # create self-signed certificate
-    cert, pk = mkcert_selfsigned(id_xmpp, webid)
+    cert, pk = mkcert_selfsigned(webid, id_xmpp)
     # save key without ask for password
     pk.save_key(key_path, None)
     cert.save_pem(cert_path)
@@ -628,7 +671,7 @@ def mkcert_selfsigned_save(cert_path='/tmp/xmpp_foaf_cert.pem',
     # a = asn1.decode(R)
     return cert, pk
 
-def mkcert_casigned_from_file(id_xmpp, webid, 
+def mkcert_casigned_from_file(webid, id_xmpp=None, pubkey = None,
         cacert_path='/tmp/xmpp_foaf_cacert.pem', 
         cakey_path='/tmp/xmpp_foaf_cakey.key',
         serial_path='/tmp/xmpp_foaf_cert_serial.txt'):
@@ -649,13 +692,26 @@ def mkcert_casigned_from_file(id_xmpp, webid,
     @return:  x509  certificate, private key
     @rtype: tuple (X509.X509, EVP.PKey)
     """
-    # with recently generated ca cert
+
     cacert, capk = get_cacert_cakey_from_file(cacert_path, cakey_path)
-    req, pk = mkreq_client(id_xmpp, webid)
-    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk, serial_path)
+    if DEBUG: 
+        print "in mkcert_casigned_from_file: CA ceert"
+        print cacert
+        print "in mkcert_casigned_from_file: CA pk"
+        print capk
+    req, pk = mkreq_client(webid, id_xmpp, pubkey=pubkey)
+    if DEBUG:
+        print "in mkcert_casigned_from_file: req"
+        print req
+        print "in mkcert_casigned_from_file: pk"
+        print pk
+    cert = mkcert_casigned(webid, req, cacert, capk, id_xmpp, serial_path)
+    if DEBUG:
+        print "in mkcert_casigned_from_file: cert"
+        print cert
     return cert, pk
 
-def mkcert_casigned_from_file_save(id_xmpp, webid, 
+def mkcert_casigned_from_file_save(webid, id_xmpp=None, pubkey = None,
         cacert_path='/tmp/xmpp_foaf_cacert.pem', 
         cakey_path='/tmp/xmpp_foaf_cakey.key', 
         cert_path='/tmp/xmpp_foaf_cert.pem', 
@@ -683,8 +739,8 @@ def mkcert_casigned_from_file_save(id_xmpp, webid,
     @rtype: tuple (X509.X509, EVP.PKey)
     """
     cacert, capk = get_cacert_cakey_from_file(cacert_path, cakey_path)
-    req, pk = mkreq_client(id_xmpp, webid)
-    cert = mkcert_casigned(id_xmpp, webid, req, cacert, capk, serial_path)
+    req, pk = mkreq_client(webid, id_xmpp, pubkey)
+    cert = mkcert_casigned( webid, req, cacert, capk, id_xmpp, serial_path)
     cert.save_pem(cert_path)
     print "saved cert: %s" % cert_path
     pk.save_key(key_path, None)
@@ -780,10 +836,10 @@ def main(argv):
     webid = "http://foafssl.rhizomatik.net/duy#me"
     
     mkcacert_save()
-    mkcert_casigned_from_file_save(id_xmpp, webid)
+    mkcert_casigned_from_file_save(webid, id_xmpp)
     p12cert_path = pkcs12cert()
 #    p12cert_path = pkcs12cert_from_file_save()
-#    cert, capk = mkcert_casigned_from_file(id_xmpp, webid)
+#    cert, capk = mkcert_casigned_from_file(webid, id_xmpp)
 #    p12cert_path = pkcs12cert(cert, capk)
 
 if __name__ == "__main__":
