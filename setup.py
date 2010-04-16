@@ -9,7 +9,8 @@ setup(
     description='Python functions for generate a X509 client certificate for XMPP or HTTP  FOAF+SSL authentication (including WebId and XMPP id at SubjectAltName).',
     author='duy',
     author_email='duy@rhizomatik.net',
-    url='http://git.rhizomatik.net/?p=python-foafcert',
+    url='https://rhizomatik.net/myceliafoafssl/wiki/XmppFoafSSL',
+    download-url='git://git.rhizomatik.net/python-foafcert',
     packages=find_packages(),
     include_package_data=True,
 
