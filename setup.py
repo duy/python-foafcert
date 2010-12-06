@@ -10,7 +10,7 @@ setup(
     author='duy',
     author_email='duy@rhizomatik.net',
     url='https://rhizomatik.net/myceliafoafssl/wiki/XmppFoafSSL',
-    download-url='git://git.rhizomatik.net/python-foafcert',
+    download_url='git://git.rhizomatik.net/python-foafcert',
     packages=find_packages(),
     include_package_data=True,
 
