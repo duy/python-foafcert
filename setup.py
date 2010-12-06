@@ -1,18 +1,26 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 #from distutils.core import setup
-from setuptools import setup, find_packages
+import sys
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    sys.stderr.write("setuptools must be installed")
+    sys.exit(1)
+from sys import version
 
 setup(
     name='python-foafcert',
-    version='0.1',
-    description='Python functions for generate a X509 client certificate for XMPP or HTTP  FOAF+SSL authentication (including WebId and XMPP id at SubjectAltName).',
+    version=version,
+    description='Python utils to generate a X509 client certificate for XMPP or HTTP  FOAF+SSL authentication (including WebId and XMPP id at SubjectAltName).',
     author='duy',
-    author_email='duy@rhizomatik.net',
+    author_email='duy at rhizomatik dot net',
     url='http://git.rhizomatik.net/?p=python-foafcert',
+    download_url='git://git.rhizomatik.net/python-foafcert',
     packages=find_packages(),
     include_package_data=True,
-
+    zip_safe=False,
     keywords = 'python foaf ssl certificate X509 PKCS12',
     license = 'GPL',
     classifiers=[

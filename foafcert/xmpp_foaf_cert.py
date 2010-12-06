@@ -190,7 +190,7 @@ def mkreq_ca(bits=1024, CN=None, C=None, O=None, OU=None, Email=None):
 
 
 #def mkreq_client(id_xmpp, webid, bits=1024):
-def mkreq_client(webid, id_xmpp=None, bits=1024, pubkey = None,
+def mkreq_client(webid, id_xmpp=None, pubkey = None, bits=1024,
         C=None, O=None, OU=None, Email=None):
     """
     Create an x509 request
@@ -214,7 +214,6 @@ def mkreq_client(webid, id_xmpp=None, bits=1024, pubkey = None,
     @return:  x509 request, private key
     @rtype: tuple (X509.Request, EVP.PKey)
     """
-
     # create x509 request
     x = X509.Request()
     
@@ -832,9 +831,10 @@ def pemcert(cert_path='/tmp/xmpp_foaf_cert.pem',
     return certkey_path
 
 def main(argv):
-    id_xmpp = "duy@xmpp.rhizomatik.net"
+    #id_xmpp = "duy@xmpp.rhizomatik.net"
     webid = "http://foafssl.rhizomatik.net/duy#me"
-    
+    id_xmpp = None
+
     mkcacert_save()
     mkcert_casigned_from_file_save(webid, id_xmpp)
     p12cert_path = pkcs12cert()
